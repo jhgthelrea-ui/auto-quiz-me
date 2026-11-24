@@ -393,7 +393,8 @@ function importFromPaste() {
 
 function importText(text) {
   let imported = 0;
-  const blocks = text.split(/\n-{3,}\n|\n---\n/).map(b => b.trim()).filter(b => b.length > 0);
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+const blocks = text.split(/[\n]+-{3,}[\n]+/).map(b => b.trim()).filter(b => b.length > 0);
 
   for (const block of blocks) {
     const q = parseBlock(block);
