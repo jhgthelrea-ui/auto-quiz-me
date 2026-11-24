@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>QuizMe</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #1a1a2e;
+  --card: #16213e;
+  --accent: #4fc3f7;
+  --correct: #66bb6a;
+  --wrong: #ef5350;
+  --text: #e0e0e0;
+  --muted: #90a4ae;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+}
+.container {
+  width: 100%;
+  max-width: 500px;
+}
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.question-text {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+.options { display: flex; flex-direction: column; gap: 10px; }
+.option-btn {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.option-btn:hover { border-color: var(--accent); background: rgba(79,195,247,0.1); }
+.option-btn.correct { border-color: var(--correct); background: rgba(102,187,106,0.15); }
+.option-btn.wrong { border-color: var(--wrong); background: rgba(239,83,80,0.15); }
+.option-btn:disabled { opacity: 0.8; cursor: default; }
+.explanation {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(79,195,247,0.08);
+  border-left: 4px solid var(--accent);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #1a1a2e;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.stats { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 0.85rem; color: var(--muted); }
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.file-input-wrap {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+.file-input-wrap input { position: absolute; left: -9999px; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+.result-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.result-badge.correct { background: rgba(102,187,106,0.2); color: var(--correct); }
+.result-badge.wrong { background: rgba(239,83,80,0.2); color: var(--wrong); }
+.format-help {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.format-help code {
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+.question-count { font-size: 0.85rem; color: var(--muted); margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🧠 QuizMe</h1>
+  <p class="subtitle">Spaced repetition quiz app</p>
+
+  <!-- HOME / MENU -->
+  <div id="screen-home" class="card">
+    <div class="stats">
+      <span id="stat-total">0 questions</span>
+      <span id="stat-due">0 due now</span>
+      <span id="stat-streak">🔥 0 streak</span>
+    </div>
+    <div class="btn-row" style="flex-direction:column; align-items:flex-start;">
+      <button class="btn" onclick="startQuiz()" id="btn-start">Start Quiz</button>
+      <button class="btn btn-secondary" onclick="showImport()">Import Questions</button>
+      <button class="btn btn-secondary" onclick="exportQuestions()">Export Questions</button>
+    </div>
+    <p class="format-help">
+      <strong>Text file format:</strong><br>
+      <code>Question?</code><br>
+      <code>A) Option 1</code><br>
+      <code>B) Option 2</code><br>
+      <code>C) Option 3</code><br>
+      <code>D) Option 4</code><br>
+      <code>Answer: B</code><br>
+      <code>Explanation: Why B is correct.</code><br>
+      <code>---</code> (separates questions)
+    </p>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="screen-quiz" style="display:none;">
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="question-count" id="q-count"></div>
+    <div class="card">
+      <div id="result-badge"></div>
+      <p class="question-text" id="q-text"></p>
+      <div class="options" id="q-options"></div>
+      <div id="q-explanation"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btn-next" onclick="nextQuestion()" style="display:none;">Next →</button>
+    </div>
+  </div>
+
+  <!-- IMPORT -->
+  <div id="screen-import" class="card" style="display:none;">
+    <p class="section-title">Import Questions from File</p>
+    <div class="btn-row">
+      <label class="btn file-input-wrap">
+        Choose Text File
+        <input type="file" accept=".txt,.json" onchange="handleFile(this)">
+      </label>
+      <button class="btn btn-secondary" onclick="showHome()">Back</button>
+    </div>
+    <p class="format-help">
+      Paste or upload a .txt file with your questions.<br>
+      You can also paste text below:
+    </p>
+    <textarea id="paste-area" style="width:100%;height:120px;margin-top:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:12px;color:var(--text);font-size:0.9rem;resize:vertical;font-family:monospace;"></textarea>
+    <div class="btn-row">
+      <button class="btn" onclick="importFromPaste()">Import Pasted Text</button>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-results" class="card" style="display:none; text-align:center;">
+    <div class="empty-state">
+      <div class="icon">🎉</div>
+      <h2>Quiz Complete!</h2>
+      <p id="results-text" style="margin-top:12px;"></p>
+    </div>
+    <div class="btn-row" style="justify-content:center;">
+      <button class="btn" onclick="startQuiz()">Study Again</button>
+      <button class="btn btn-secondary" onclick="showHome()">Home</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ DATA LAYER ============
+const STORAGE_KEY = 'quizme_questions';
+const PROGRESS_KEY = 'quizme_progress';
+
+let questions = [];
+let progress = {}; // { questionIndex: { interval, ease, due, reps } }
+let currentQuiz = [];
+let quizIndex = 0;
+let correctCount = 0;
+
+function loadQuestions() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) questions = JSON.parse(saved);
+}
+
+function saveQuestions() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(questions));
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem(PROGRESS_KEY);
+  if (saved) progress = JSON.parse(saved);
+}
+
+function saveProgress() {
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+}
+
+// ============ SPACED REPETITION (SM-2 simplified) ============
+function getDueQuestions() {
+  const now = Date.now();
+  return questions.map((q, i) => ({ q, i }))
+    .filter(({ i }) => {
+      const p = progress[i];
+      if (!p) return true; // never seen = due
+      return p.due <= now;
+    });
+}
+
+function updateSRS(index, correct) {
+  const p = progress[index] || { interval: 0, ease: 2.5, reps: 0 };
+  
+  if (correct) {
+    p.reps++;
+    if (p.reps === 1) p.interval = 1; // 1 day
+    else if (p.reps === 2) p.interval = 6; // 6 days
+    else p.interval = Math.round(p.interval * p.ease);
+    p.ease = Math.max(1.3, p.ease + 0.1 - (5 - 5) * (0.08 + 0.02 * (5 - 5)));
+  } else {
+    p.reps = 0;
+    p.interval = 0; // relearn immediately
+    p.ease = Math.max(1.3, p.ease - 0.2);
+  }
+  
+  p.due = Date.now() + (p.interval * 86400000); // ms in a day
+  progress[index] = p;
+  saveProgress();
+}
+
+// ============ QUIZ FLOW ============
+function startQuiz() {
+  const due = getDueQuestions();
+  if (due.length === 0) {
+    alert('No questions due! Add some questions or come back later.');
+    return;
+  }
+  // Shuffle
+  currentQuiz = due.sort(() => Math.random() - 0.5);
+  quizIndex = 0;
+  correctCount = 0;
+  showScreen('quiz');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const { q, i } = currentQuiz[quizIndex];
+  document.getElementById('q-text').textContent = q.question;
+  document.getElementById('q-count').textContent = `Question ${quizIndex + 1} of ${currentQuiz.length}`;
+  document.getElementById('progress').style.width = `${((quizIndex) / currentQuiz.length) * 100}%`;
+  document.getElementById('result-badge').innerHTML = '';
+  document.getElementById('q-explanation').innerHTML = '';
+  document.getElementById('btn-next').style.display = 'none';
+
+  const optsDiv = document.getElementById('q-options');
+  optsDiv.innerHTML = '';
+  q.options.forEach((opt, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.textContent = `${String.fromCharCode(65 + idx)}) ${opt}`;
+    btn.onclick = () => selectAnswer(idx, i);
+    optsDiv.appendChild(btn);
+  });
+}
+
+function selectAnswer(selectedIdx, questionIdx) {
+  const { q } = currentQuiz[quizIndex];
+  const correctIdx = q.options.indexOf(q.answer);
+  const isCorrect = selectedIdx === correctIdx;
+
+  if (isCorrect) correctCount++;
+
+  // Visual feedback
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach((btn, idx) => {
+    btn.disabled = true;
+    if (idx === correctIdx) btn.classList.add('correct');
+    else if (idx === selectedIdx && !isCorrect) btn.classList.add('wrong');
+  });
+
+  // Show explanation
+  const badge = document.getElementById('result-badge');
+  badge.innerHTML = isCorrect
+    ? '<span class="result-badge correct">✓ Correct!</span>'
+    : `<span class="result-badge wrong">✗ Incorrect — Answer: ${String.fromCharCode(65 + correctIdx)}) ${q.answer}</span>`;
+
+  const explDiv = document.getElementById('q-explanation');
+  if (q.explanation) {
+    explDiv.innerHTML = `<div class="explanation"><strong>💡 Explanation:</strong><br>${q.explanation}</div>`;
+  }
+
+  // Update SRS
+  updateSRS(questionIdx, isCorrect);
+
+  document.getElementById('btn-next').style.display = 'inline-block';
+}
+
+function nextQuestion() {
+  quizIndex++;
+  if (quizIndex >= currentQuiz.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResults() {
+  const pct = Math.round((correctCount / currentQuiz.length) * 100);
+  document.getElementById('results-text').textContent = `You got ${correctCount}/${currentQuiz.length} correct (${pct}%)`;
+  showScreen('results');
+}
+
+// ============ IMPORT / EXPORT ============
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    importText(e.target.result);
+  };
+  reader.readAsText(file);
+}
+
+function importFromPaste() {
+  const text = document.getElementById('paste-area').value.trim();
+  if (!text) { alert('Please paste some questions first.'); return; }
+  importText(text);
+}
+
+function importText(text) {
+  let imported = 0;
+  const blocks = text.split(/\n-{3,}\n|\n---\n/).map(b => b.trim()).filter(b => b.length > 0);
+
+  for (const block of blocks) {
+    const q = parseBlock(block);
+    if (q) {
+      questions.push(q);
+      imported++;
+    }
+  }
+
+  if (imported === 0) {
+    alert('Could not parse any questions. Check the format.');
+    return;
+  }
+
+  saveQuestions();
+  updateStats();
+  showHome();
+  alert(`✅ Imported ${imported} question(s)! Total: ${questions.length}`);
+}
+
+function parseBlock(block) {
+  const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 3) return null;
+
+  let question = '';
+  let options = [];
+  let answer = '';
+  let explanation = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    if (/^(A|B|C|D|E)\)\s/.test(line)) {
+      options.push(line.replace(/^[A-E]\)\s*/, ''));
+    } else if (/^Answer:\s*/i.test(line)) {
+      answer = line.replace(/^Answer:\s*/i, '').trim().toUpperCase();
+      // Handle "B) text" or just "B"
+      answer = answer.match(/^[A-E]/)[0];
+    } else if (/^Explanation:\s*/i.test(line)) {
+      explanation = line.replace(/^Explanation:\s*/i, '');
+    } else if (!question) {
+      question = line;
+    }
+  }
+
+  if (!question || options.length < 2 || !answer) return null;
+
+  const answerText = options[answer.charCodeAt(0) - 65] || '';
+  
+  return { question, options, answer: answerText, explanation };
+}
+
+function exportQuestions() {
+  if (questions.length === 0) { alert('No questions to export.'); return; }
+  let text = '';
+  for (const q of questions) {
+    text += q.question + '\n';
+    q.options.forEach((opt, i) => {
+      text += `${String.fromCharCode(65 + i)}) ${opt}\n`;
+    });
+    const ansLetter = String.fromCharCode(65 + q.options.indexOf(q.answer));
+    text += `Answer: ${ansLetter}\n`;
+    if (q.explanation) text += `Explanation: ${q.explanation}\n`;
+    text += '---\n';
+  }
+
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'my-questions.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============ UI HELPERS ============
+function showScreen(name) {
+  ['home', 'quiz', 'import', 'results'].forEach(s => {
+    document.getElementById('screen-' + s).style.display = (s === name) ? 'block' : 'none';
+  });
+}
+
+function showHome() { updateStats(); showScreen('home'); }
+function showImport() { showScreen('import'); }
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = `${questions.length} question${questions.length !== 1 ? 's' : ''}`;
+  const due = getDueQuestions().length;
+  document.getElementById('stat-due').textContent = `${due} due now`;
+}
+
+// ============ INIT ============
+loadQuestions();
+loadProgress();
+updateStats();
+
+// Register service worker for PWA
+try {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+} catch (e) {
+  // Service worker not available (e.g. sandboxed context)
+}
+</script>
+</body>
+</html>
